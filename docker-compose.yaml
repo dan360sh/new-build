@@ -1,0 +1,21 @@
+services:  
+  nginx:
+    image: nginx:1.17
+    restart: unless-stopped
+    volumes:
+      - ./data/nginx:/etc/nginx/conf.d
+      - ./front:/usr/share/nginx/html
+    ports:
+      - "80:80"
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./bd:/data/db
+  backend:
+    build: ./backend
+    depends_on:
+      - mongo
