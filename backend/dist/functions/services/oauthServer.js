@@ -18,12 +18,18 @@ class Oauth {
             if (mongo) {
                 const user = yield mongo.findOne("user", { idname: data.idname });
                 if (user) {
-                    return { token: user.token, name: user.name, id: user.idname };
+                    let t = yield __1.ConfigInstance.fileService.load(user.idname, "tickets", "text");
+                    if (typeof t === "string") {
+                        t = Number(t);
+                    }
+                    return { token: user.token, name: user.name, id: user.idname, tickets: t };
                 }
                 else {
                     const newPassword = crypto.randomUUID();
                     mongo.save("user", [Object.assign({ token: newPassword }, data)], "array");
-                    return { token: newPassword, name: data.name, id: data.idname };
+                    //если пользователя нет, то при регистрации дарим ему подарок;
+                    __1.ConfigInstance.fileService.save(data.idname, "tickets", "100", "text");
+                    return { token: newPassword, name: data.name, id: data.idname, tickets: 100 };
                 }
             }
             return null;
@@ -33,10 +39,15 @@ class Oauth {
         return __awaiter(this, void 0, void 0, function* () {
             const mongo = __1.ConfigInstance.mongo;
             const user = yield (mongo === null || mongo === void 0 ? void 0 : mongo.findOne("user", { token: token }));
+            console.log(user, " user auth");
             if (!user) {
                 return null;
             }
-            return { token: user.token, name: user.name, id: user.idname };
+            let t = yield __1.ConfigInstance.fileService.load(user.idname, "tickets", "text");
+            if (typeof t === "string") {
+                t = Number(t);
+            }
+            return { token: user.token, name: user.name, id: user.idname, tickets: t };
         });
     }
 }

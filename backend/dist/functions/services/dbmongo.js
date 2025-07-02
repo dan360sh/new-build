@@ -103,13 +103,21 @@ class DBMongo {
     }
     findOne(name, search) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log("findOne", name, search);
             const collection = this.db.collection(name);
-            const documents = yield collection.find({}).toArray();
-            console.log("documents", documents);
             let token = yield collection.findOne(search);
-            console.log("tttt", token);
             return token;
+        });
+    }
+    /**
+     *
+     * @param name - название таблицы
+     * @param search - объект поиска
+     * @param data - поля которые нужно обновить
+     */
+    updateOne(name, search, data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const collection = this.db.collection(name);
+            yield collection.updateOne(search, data);
         });
     }
 }

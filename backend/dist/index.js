@@ -26,10 +26,10 @@ exports.ConfigInstance = ConfigInstance;
 (() => __awaiter(void 0, void 0, void 0, function* () {
     dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../.env') });
     let m = {
-    // cmd: {
-    //         command: 'node',
-    //         args: ["./mcp/cmd/dist/index.js"]
-    //     }
+        cmd: {
+            command: 'node',
+            args: [path_1.default.resolve(__dirname, '../mcp/cmd/dist/index.js')]
+        }
     };
     if (process.env.MONGODB_URI) {
         const mong = new dbmongo_1.DBMongo();
@@ -43,6 +43,7 @@ exports.ConfigInstance = ConfigInstance;
     "price": 12,
     "url": "hat.deepseek.com",
     "model": "openai/gpt-4o",
+    "contextSize": 200000,
     "properties":["see", "text-generation"]
 },
 {
@@ -54,6 +55,7 @@ exports.ConfigInstance = ConfigInstance;
     "price": 12,
     "url": "hat.deepseek.com",
     "model": "gemma3:12b",
+    "contextSize": 100000,
     "properties":["see", "text-generation"]
 }
 

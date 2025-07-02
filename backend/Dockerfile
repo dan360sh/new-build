@@ -1,5 +1,5 @@
 # Устанавливаем базовый образ Node.js
-FROM node:18.12.1-alpine
+FROM node:lts-alpine
 
 # Устанавливаем рабочую директорию
 WORKDIR /app

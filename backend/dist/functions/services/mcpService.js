@@ -29,6 +29,8 @@ class McpService {
         return __awaiter(this, void 0, void 0, function* () {
             // file.load
             for (let el in tr) {
+                // Запускаем сервер как дочерний процесс
+                //const serverProcess = spawn("node", ["C:/mcp/new-build2/backend/mcp/cmd/dist/server.js"]);
                 const transport = new stdio_js_1.StdioClientTransport(tr[el]);
                 const client = new index_js_1.Client({
                     name: "cmd",

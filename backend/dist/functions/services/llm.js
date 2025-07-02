@@ -21,14 +21,16 @@ const __1 = require("../..");
 class Llm {
     constructor() {
         this.fileService = __1.ConfigInstance.fileService;
+        this.countTokens = 0;
     }
-    preparationSendLlmMessage(messageUser, context, ws, llms, provider, openChat, userId, streamId, chatArray) {
+    preparationSendLlmMessage(messageUser, context, ws, llms, provider, openChat, user, streamId, chatArray) {
         return __awaiter(this, void 0, void 0, function* () {
             ws.send(JSON.stringify({ type: 'send-token', data: { id: openChat === null || openChat === void 0 ? void 0 : openChat.settings.id, type: "start" } }));
+            this.countTokens = 0;
             console.log("start", JSON.stringify({ type: 'send-token', data: { id: openChat === null || openChat === void 0 ? void 0 : openChat.settings.id, type: "start" } }));
             const mcp = __1.ConfigInstance.mcp;
             console.log(JSON.stringify(mcp.tools), 'mcp.tools');
-            this.saveChat(openChat, [{ role: "user", content: messageUser }], [{ role: "user", content: [{ type: 'message', data: messageUser }] }], userId);
+            this.saveChat(openChat, [{ role: "user", content: messageUser }], [{ role: "user", content: [{ type: 'message', data: messageUser }] }], user.id);
             const promt = mcp.promt + JSON.stringify(mcp.tools);
             context.unshift({ role: "system", content: promt });
             // сохранение чата
@@ -37,17 +39,19 @@ class Llm {
                 findChat.noSave = false;
             }
             console.log(chatArray, " chatArray");
-            this.fileService.save(userId, 'chats.json', JSON.stringify(chatArray), 'text');
+            this.fileService.save(user.id, 'chats.json', JSON.stringify(chatArray), 'text');
             openChat.settings.time = Date.now().toString();
-            this.fileService.save(userId, 'chats-settings/' + openChat.settings.id + 'chats.json', JSON.stringify(openChat.settings), 'text');
-            yield this.sendLlmMessage(context, ws, llms, provider, openChat, userId, streamId, chatArray);
+            yield this.sendLlmMessage(context, ws, llms, provider, openChat, user, streamId, chatArray);
+            this.fileService.save(user.id, 'chats-settings/' + openChat.settings.id + 'chats.json', JSON.stringify(openChat.settings), 'text');
             delete streamId[openChat.settings.id];
             context.shift();
             ws.send(JSON.stringify({ type: 'send-token', data: { id: openChat.settings.id, type: "stop" } }));
+            // сохранение в аналитику 
+            yield this.fileService.save(user.id, 'analytics.json', [{ time: Date.now().toString(), name: llms.name, price: llms.price, countTokens: this.countTokens, writtenOff: this.countTokens * llms.price / 1000000 }], 'array');
             console.log("stop", JSON.stringify({ type: 'send-token', data: { id: openChat.settings.id, type: "stop" } }));
         });
     }
-    sendLlmMessage(context, ws, llms, provider, openChat, userId, streamId, chatArray) {
+    sendLlmMessage(context, ws, llms, provider, openChat, user, streamId, chatArray) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, e_1, _b, _c;
             var _d;
@@ -125,7 +129,7 @@ class Llm {
                     messageContext.push({ role: "assistant", content: message });
                     messageChat.push({ role: "assistant", content: [{ type: 'message', data: message }] });
                 }
-                yield this.saveChat(openChat, messageContext, messageChat, userId);
+                yield this.saveChat(openChat, messageContext, messageChat, user.id);
                 const completionx = yield provider.llm.chat.completions.create({
                     model: llms.model,
                     messages: context,
@@ -134,13 +138,19 @@ class Llm {
                 console.log('Ответ:', completionx.choices[0].message.content);
                 console.log('Использование токенов:', (_d = completionx.usage) === null || _d === void 0 ? void 0 : _d.total_tokens);
                 if (completionx.usage) {
+                    //потраченные токены
                     let count = completionx.usage.total_tokens - openChat.settings.tokenCount;
+                    //умножаем на цену за миллион
+                    this.countTokens = this.countTokens + count;
+                    user.tickets = user.tickets - (llms.price * count / 1000000);
                     openChat.settings.tokenCount = completionx.usage.total_tokens;
-                    ws.send(JSON.stringify({ type: 'token-count', data: openChat.settings.tokenCount }));
+                    ws.send(JSON.stringify({ type: 'token-count', data: { tokenCount: openChat.settings.tokenCount, tickets: user.tickets } }));
+                    // запись в базу о потраченых токенах, нужно время, какая модель, сколько потрачено, сколько токенов.
+                    // также у юзера должна быть запись о токенах 
                 }
                 if (toolFlag) {
                     console.log("Второй заход");
-                    yield this.sendLlmMessage(context, ws, llms, provider, openChat, userId, streamId, chatArray);
+                    yield this.sendLlmMessage(context, ws, llms, provider, openChat, user, streamId, chatArray);
                 }
                 return;
             }

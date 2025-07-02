@@ -17,6 +17,12 @@ const ws_1 = require("ws");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const chats_1 = require("./services/chats");
 const llm_list_1 = require("./services/llm-list");
+// export interface AllUser {
+//     name: string, 
+//     token: string, 
+//     id: string,
+//     tickets: number
+// }
 class WsConnect {
     constructor(bd) {
         this.bd = bd;
@@ -31,63 +37,62 @@ class WsConnect {
             const listLlm = yield llmList.loadLlmList();
             const providers = yield llmList.loadProviders();
             this.wss.on('connection', (ws) => {
-                let id = null;
+                //let id: string | null | undefined = null;
                 let chat = null;
+                let user = null;
                 ws.on('message', (message) => __awaiter(this, void 0, void 0, function* () {
                     console.log(`Получено: ${message}`);
-                    let user = null;
+                    console.log("Получено", user);
                     const data = JSON.parse(message);
-                    console.log("data xxx", data);
                     if (data.type === "oauth") {
                         const decoded = jsonwebtoken_1.default.decode(data.data);
                         console.log(decoded, "decoded");
                         user = yield this.bd.oauthUser({
                             idname: decoded.sub,
                             name: decoded.name,
-                            email: decoded.email
+                            email: decoded.email,
                         });
-                        id = user === null || user === void 0 ? void 0 : user.id;
                         console.log(user, "user1111");
-                        if (id) {
-                            chat = new chats_1.Chats(id, ws, listLlm, providers);
+                        if (user) {
+                            chat = new chats_1.Chats(user, ws, listLlm, providers);
                         }
                         ws.send(JSON.stringify({ type: "authorization", data: user }));
                     }
                     else if (data.type === "authorization") {
                         user = yield this.bd.authorization(data.data);
-                        id = user === null || user === void 0 ? void 0 : user.id;
+                        console.log("authorization user", user);
                         if (user) {
                             ws.send(JSON.stringify({ type: "authorization", data: { name: user.name, token: user.token } }));
                         }
-                        if (id) {
-                            chat = new chats_1.Chats(id, ws, listLlm, providers);
+                        if (user) {
+                            chat = new chats_1.Chats(user, ws, listLlm, providers);
                             //инициа
                         }
                     }
-                    else if (data.type === "create-chat" && id) {
+                    else if (data.type === "create-chat" && user) {
                         if (chat) {
                             let req = yield chat.createChat(data.data);
                             console.log(req, "req");
                             ws.send(JSON.stringify({ type: "create-chat", data: req }));
                         }
                     }
-                    else if (data.type === "send-message" && id) {
+                    else if (data.type === "send-message" && user) {
                         if (chat) {
                             yield chat.sendMessage(data.data);
                         }
                     }
-                    else if (data.type === "load-chat" && id) {
+                    else if (data.type === "load-chat" && user) {
                         console.log("Удалить это надо");
                         if (chat) {
                             chat.loadChat(data.data);
                         }
                     }
-                    else if (data.type == "stop" && id) {
+                    else if (data.type == "stop" && user) {
                         if (chat) {
                             chat.stop();
                         }
                     }
-                    else if (data.type == "settings-chat" && id) {
+                    else if (data.type == "settings-chat" && user) {
                         if (chat) {
                             chat.settingsChat(data.data);
                         }

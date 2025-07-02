@@ -14,13 +14,12 @@ const stream_1 = require("stream");
 const __1 = require("../..");
 const llm_1 = require("./llm");
 class Chats {
-    constructor(id, ws, llms, provider) {
-        this.id = id;
+    constructor(user, ws, llms, provider) {
+        this.user = user;
         this.ws = ws;
         this.llms = llms;
         this.provider = provider;
         this.fileService = __1.ConfigInstance.fileService;
-        this.llmService = new llm_1.Llm();
         this.stopEvent = new stream_1.EventEmitter();
         //список всех чатов;
         this.chatArray = [];
@@ -57,8 +56,8 @@ class Chats {
                 this.openChat.settings = settings;
                 console.log(this.openChat.settings, "this.openChat.settings");
                 if (!settings.noSave) {
-                    this.fileService.save(this.id, 'chats-settings/' + ((_a = this.openChat) === null || _a === void 0 ? void 0 : _a.settings.id) + 'chats.json', JSON.stringify((_b = this.openChat) === null || _b === void 0 ? void 0 : _b.settings), 'text');
-                    this.fileService.save(this.id, 'chats.json', JSON.stringify(this.chatArray), 'text');
+                    this.fileService.save(this.user.id, 'chats-settings/' + ((_a = this.openChat) === null || _a === void 0 ? void 0 : _a.settings.id) + 'chats.json', JSON.stringify((_b = this.openChat) === null || _b === void 0 ? void 0 : _b.settings), 'text');
+                    this.fileService.save(this.user.id, 'chats.json', JSON.stringify(this.chatArray), 'text');
                 }
                 break;
             }
@@ -68,7 +67,7 @@ class Chats {
     getChats() {
         return __awaiter(this, void 0, void 0, function* () {
             console.log("getChats111");
-            const rawData = yield this.fileService.load(this.id, 'chats.json', 'text');
+            const rawData = yield this.fileService.load(this.user.id, 'chats.json', 'text');
             if (rawData) {
                 return JSON.parse(rawData);
             }
@@ -95,7 +94,8 @@ class Chats {
                 if (llm) {
                     let provider = this.provider.find(e => e.id == llm.providerId);
                     if (provider && this.openChat.context) {
-                        this.llmService.preparationSendLlmMessage(message, this.openChat.context, this.ws, llm, provider, this.openChat, this.id, this.streamId, this.chatArray);
+                        const llmService = new llm_1.Llm();
+                        llmService.preparationSendLlmMessage(message, this.openChat.context, this.ws, llm, provider, this.openChat, this.user, this.streamId, this.chatArray);
                         //this.sendLlmMessage(message, this.openChat.context, this.ws, llm, provider, this.openChat);
                     }
                 }
@@ -114,9 +114,9 @@ class Chats {
                 }
                 else {
                     this.openChat = { settings: chatFind, context: [], messages: [], loadMessage: 10 };
-                    const settings = yield this.fileService.load(this.id, 'chats-settings/' + id + 'chats.json', 'text');
-                    const context = yield this.fileService.load(this.id, 'chats-context/' + id + 'chats.json', 'array');
-                    const message = yield this.fileService.load(this.id, 'chats-messages/' + id + 'chats.json', 'array', 1, 10);
+                    const settings = yield this.fileService.load(this.user.id, 'chats-settings/' + id + 'chats.json', 'text');
+                    const context = yield this.fileService.load(this.user.id, 'chats-context/' + id + 'chats.json', 'array');
+                    const message = yield this.fileService.load(this.user.id, 'chats-messages/' + id + 'chats.json', 'array', 1, 10);
                     if (context) {
                         this.openChat.context = context;
                     }

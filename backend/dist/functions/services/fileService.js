@@ -115,5 +115,13 @@ class FileService {
             }
         });
     }
+    updateOne(id, file, search, data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.mongo) {
+                const pathName = id + '/' + file;
+                yield this.mongo.updateOne(pathName, search, data);
+            }
+        });
+    }
 }
 exports.FileService = FileService;
