@@ -13,12 +13,13 @@ exports.Chats = void 0;
 const stream_1 = require("stream");
 const __1 = require("../..");
 const llm_1 = require("./llm");
+const newChatMessage = { data: [], stepObject: { start: 0, stop: 0, allQuantity: 0 } };
 class Chats {
-    constructor(user, ws, llms, provider) {
+    constructor(user, llms, provider, ws) {
         this.user = user;
-        this.ws = ws;
         this.llms = llms;
         this.provider = provider;
+        this.ws = ws;
         this.fileService = __1.ConfigInstance.fileService;
         this.stopEvent = new stream_1.EventEmitter();
         //список всех чатов;
@@ -31,8 +32,8 @@ class Chats {
     init() {
         return __awaiter(this, void 0, void 0, function* () {
             this.chatArray = yield this.getChats();
-            this.ws.send(JSON.stringify({ type: 'get-chats', data: this.chatArray }));
-            this.ws.send(JSON.stringify({ type: 'get-llms', data: this.llms }));
+            this.user.send({ type: 'get-chats', data: this.chatArray });
+            this.user.send({ type: 'get-llms', data: this.llms });
         });
     }
     stop() {
@@ -67,23 +68,21 @@ class Chats {
     getChats() {
         return __awaiter(this, void 0, void 0, function* () {
             console.log("getChats111");
-            const rawData = yield this.fileService.load(this.user.id, 'chats.json', 'text');
+            const rawData = yield this.fileService.load(this.user.id, 'chats.json', 'array');
             if (rawData) {
-                return JSON.parse(rawData);
+                return rawData;
             }
             return [];
         });
     }
     createChat(newChat) {
-        return __awaiter(this, void 0, void 0, function* () {
-            //id чата
-            //const idChat  = crypto.randomUUID();
-            newChat.noSave = true;
-            this.chatArray.push(newChat);
-            newChat.tokenCount = 0;
-            this.openChat = { settings: newChat, context: [], messages: [], loadMessage: 20 };
-            return this.openChat;
-        });
+        //id чата
+        //const idChat  = crypto.randomUUID();
+        newChat.noSave = true;
+        this.chatArray.push(newChat);
+        newChat.tokenCount = 0;
+        this.openChat = { settings: newChat, context: [], };
+        return this.openChat;
     }
     sendMessage(message) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -95,46 +94,60 @@ class Chats {
                     let provider = this.provider.find(e => e.id == llm.providerId);
                     if (provider && this.openChat.context) {
                         const llmService = new llm_1.Llm();
-                        llmService.preparationSendLlmMessage(message, this.openChat.context, this.ws, llm, provider, this.openChat, this.user, this.streamId, this.chatArray);
+                        llmService.preparationSendLlmMessage(message, this.openChat.context, llm, provider, this.openChat, this.user, this.streamId, this.chatArray);
                         //this.sendLlmMessage(message, this.openChat.context, this.ws, llm, provider, this.openChat);
                     }
                 }
             }
         });
     }
-    loadChat(id) {
+    loadChat(id, loadMessage) {
         return __awaiter(this, void 0, void 0, function* () {
             console.log("load chat", id);
             let chatFind = this.chatArray.find(e => e.id == id);
             if (chatFind) {
                 if (chatFind.noSave) {
-                    console.log("ебать");
-                    this.openChat = { settings: chatFind, context: [], messages: [], loadMessage: 10 };
-                    this.ws.send(JSON.stringify({ type: 'load-chat', data: this.openChat }));
+                    console.log("ебать noSave");
+                    this.openChat = { settings: chatFind, context: [] };
+                    this.ws.send(JSON.stringify({ type: 'load-chat', data: { context: newChatMessage, settings: this.openChat.settings } }));
                 }
                 else {
-                    this.openChat = { settings: chatFind, context: [], messages: [], loadMessage: 10 };
+                    this.openChat = { settings: chatFind, context: [] };
                     const settings = yield this.fileService.load(this.user.id, 'chats-settings/' + id + 'chats.json', 'text');
                     const context = yield this.fileService.load(this.user.id, 'chats-context/' + id + 'chats.json', 'array');
                     const message = yield this.fileService.load(this.user.id, 'chats-messages/' + id + 'chats.json', 'array', 1, 10);
                     if (context) {
                         this.openChat.context = context;
                     }
-                    if (message) {
-                        this.openChat.messages = message;
-                        console.log(message, "message");
-                    }
                     if (settings) {
                         this.openChat.settings = JSON.parse(settings);
                         console.log("load");
-                        this.ws.send(JSON.stringify({ type: 'load-chat', data: { context: this.openChat.messages, settings: this.openChat.settings } }));
+                        this.ws.send(JSON.stringify({ type: 'load-chat', data: { context: message, settings: this.openChat.settings } }));
                     }
                 }
             }
             else {
+                let newChat = { id: id, name: "Новый чат", llmId: "5353", time: Date.now().toString(), maxToken: 5000, temperature: 0.7, tokenCount: 0 };
                 //все равно создадим кастомный
-                this.openChat = null;
+                this.openChat = this.createChat(newChat);
+                this.ws.send(JSON.stringify({ type: 'load-chat', data: { context: newChatMessage, settings: this.openChat.settings } }));
             }
+        });
+    }
+    deleteChat(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.fileService.deleteOne(this.user.id, 'chats.json', { id: id }, "array");
+            //         await this.fileService.save(userId, 'chats-context/'+ openChat.settings.id+'chats.json', messageContext, 'array');
+            // await this.fileService.save(userId, 'chats-messages/'+ openChat.settings.id+'chats.json',messageChat, 'array');
+            this.fileService.drop(this.user.id, 'chats-context/' + id + 'chats.json');
+            this.fileService.drop(this.user.id, 'chats-messages/' + id + 'chats.json');
+            console.log("deleteChat", id);
+        });
+    }
+    reloadingChat(id, step) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const message = yield this.fileService.load(this.user.id, 'chats-messages/' + id + 'chats.json', 'array', step.start, step.stop);
+            this.user.send({ type: 'reloading-chat', data: message });
         });
     }
 }

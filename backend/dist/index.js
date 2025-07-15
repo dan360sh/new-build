@@ -29,51 +29,145 @@ exports.ConfigInstance = ConfigInstance;
         cmd: {
             command: 'node',
             args: [path_1.default.resolve(__dirname, '../mcp/cmd/dist/index.js')]
-        }
+        },
+        // sequentialThinking : {
+        //     command: "npx",
+        //     args: [
+        //         "-y",
+        //         "@modelcontextprotocol/server-sequential-thinking"
+        //     ]
+        // },
+        // filesystem: {
+        //     command: "npx",
+        //     args: [
+        //         "-y",
+        //         "@modelcontextprotocol/server-filesystem",
+        //         "/"
+        //     ]
+        // },
+        // browserMcp: {
+        //     command: "npx",
+        //     "args": [
+        //         "@browsermcp/mcp"
+        //     ]
+        // }
     };
     if (process.env.MONGODB_URI) {
         const mong = new dbmongo_1.DBMongo();
         yield mong.connect();
-        yield mong.save('system/llm.json', `[{
-    "id": "5454",
-    "name": "deepSeek",
-    "providerId": "1234",
-    "description": "я китайский клон gpt",
-    "icon": "string",
-    "price": 12,
-    "url": "hat.deepseek.com",
-    "model": "openai/gpt-4o",
-    "contextSize": 200000,
-    "properties":["see", "text-generation"]
-},
-{
-    "id": "5353",
-    "name": "gema",
-    "providerId": "4321",
-    "description": "я гугловская мини сеть",
-    "icon": "string",
-    "price": 12,
-    "url": "hat.deepseek.com",
-    "model": "gemma3:12b",
-    "contextSize": 100000,
-    "properties":["see", "text-generation"]
-}
-
-]`, 'text');
-        yield mong.save('system/provider.json', `[
-    {
-        "id": "1234",
-        "type": "openai",
-        "baseURL": "https://openrouter.ai/api/v1",
-        "apiKey": "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"
-    },
-    {
-        "id": "4321",
-        "type": "openai",
-        "baseURL": "http://178.57.98.210:11434/v1",
-        "apiKey": "ollama"
-    }
-]`, 'text');
+        let llms = [{
+                "id": "5454",
+                "name": "deepSeek",
+                "providerId": "1234",
+                "description": "я китайский клон gpt",
+                "icon": "string",
+                "price": 12,
+                "url": "hat.deepseek.com",
+                "model": "openai/gpt-4o",
+                "contextSize": 200000,
+                "properties": ["see", "text-generation"]
+            },
+            {
+                "id": "5353",
+                "name": "gema",
+                "providerId": "4321",
+                "description": "я гугловская мини сеть",
+                "icon": "string",
+                "price": 12,
+                "url": "hat.deepseek.com",
+                "model": "gemma3:12b",
+                "contextSize": 100000,
+                "properties": ["see", "text-generation"]
+            },
+            {
+                "id": "5456",
+                "name": "Hunyuan A13B Instruct",
+                "providerId": "4322",
+                "description": "Какая-то хрень",
+                "icon": "string",
+                "price": 12,
+                "url": "hat.deepseek.com",
+                "model": "openai/gpt-4o",
+                "contextSize": 200000,
+                "properties": ["see", "text-generation"]
+            },
+            {
+                "id": "1459",
+                "name": "Google: Gemma 3n 2B",
+                "providerId": "12323",
+                "description": "гугловская мини нейросеть",
+                "icon": "string",
+                "price": 12,
+                "url": "hat.deepseek.com",
+                "model": "openai/gpt-4o",
+                "contextSize": 200000,
+                "properties": ["see", "text-generation"]
+            },
+            {
+                "id": "34521",
+                "name": "тестовая",
+                "providerId": "55555",
+                "description": "гугловская мини нейросеть",
+                "icon": "string",
+                "price": 12,
+                "url": "hat.deepseek.com",
+                "model": "openai/gpt-4o",
+                "contextSize": 200000,
+                "properties": ["see", "text-generation"]
+            },
+            {
+                "id": "66666",
+                "name": "Kimi K2",
+                "providerId": "55555",
+                "description": "OpenRouter provides an OpenAI-compatible completion API to 400+ models & providers that you can call directly, or using the OpenAI SDK. Additionally, some third-party SDKs are available.",
+                "icon": "string",
+                "price": 12,
+                "url": "hat.deepseek.com",
+                "model": "openai/gpt-4o",
+                "contextSize": 200000,
+                "properties": ["see", "text-generation"]
+            },
+        ];
+        yield mong.save('system/llm.json', JSON.stringify(llms), 'text');
+        const newProvider = [
+            {
+                "id": "1234",
+                "type": "openai",
+                "baseURL": "https://openrouter.ai/api/v1",
+                "apiKey": "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"
+            },
+            {
+                "id": "4321",
+                "type": "openai",
+                "baseURL": "http://localhost:11434/v1",
+                "apiKey": "ollama"
+            },
+            {
+                "id": "4322",
+                "type": "openai",
+                "baseURL": "https://openrouter.ai/api/v1",
+                "apiKey": "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"
+            },
+            {
+                "id": "12323",
+                "type": "openai",
+                "baseURL": "https://openrouter.ai/api/v1",
+                "apiKey": "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"
+            },
+            {
+                "id": "55555",
+                "type": "openai",
+                "baseURL": "http://localhost:3700/v1",
+                "apiKey": "xxxx"
+            },
+            {
+                "id": "66666",
+                "type": "openai",
+                "baseURL": "https://openrouter.ai/api/v1",
+                "apiKey": "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"
+            },
+        ];
+        yield mong.save('system/provider.json', JSON.stringify(newProvider), 'text');
         ConfigInstance.mongo = mong;
     }
     ConfigInstance.fileService = new fileService_1.FileService();
@@ -86,5 +180,20 @@ exports.ConfigInstance = ConfigInstance;
     console.log("dssdds");
     //const bd = new BD();
     const oauth = new oauthServer_1.Oauth();
-    new ws_connect_1.WsConnect(oauth);
+    //const p = new Payment();
+    //p.pay();
+    try {
+        new ws_connect_1.WsConnect(oauth);
+    }
+    catch (e) {
+        console.log(e, "Вылет");
+    }
 }))();
+function x1(oauth) {
+    try {
+        new ws_connect_1.WsConnect(oauth);
+    }
+    catch (e) {
+        console.log(e, "Вылет");
+    }
+}

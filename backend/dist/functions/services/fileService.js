@@ -123,5 +123,23 @@ class FileService {
             }
         });
     }
+    drop(id, file) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.mongo) {
+                const pathName = id + '/' + file;
+                yield this.mongo.drop(pathName);
+            }
+        });
+    }
+    deleteOne(id, file, search, type) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.mongo) {
+                if (type == 'array') {
+                    const pathName = id + '/' + file;
+                    yield this.mongo.deleteOne(pathName, search);
+                }
+            }
+        });
+    }
 }
 exports.FileService = FileService;

@@ -10,7 +10,21 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Oauth = void 0;
+exports.generateUUID = generateUUID;
 const __1 = require("../..");
+function generateUUID() {
+    const buf = new Uint16Array(8);
+    return (pad4(buf[0]) + pad4(buf[1]) + '-' + pad4(buf[2]) + '-' +
+        pad4(buf[3]) + '-' + pad4(buf[4]) + '-' +
+        pad4(buf[5]) + pad4(buf[6]) + pad4(buf[7]));
+}
+function pad4(num) {
+    let ret = num.toString(16);
+    while (ret.length < 4) {
+        ret = '0' + ret;
+    }
+    return ret;
+}
 class Oauth {
     oauthUser(data) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -22,14 +36,13 @@ class Oauth {
                     if (typeof t === "string") {
                         t = Number(t);
                     }
-                    return { token: user.token, name: user.name, id: user.idname, tickets: t };
+                    return { token: user.token, name: user.name, id: user.idname };
                 }
                 else {
-                    const newPassword = crypto.randomUUID();
+                    //crypto.randomUUID();
+                    const newPassword = generateUUID();
                     mongo.save("user", [Object.assign({ token: newPassword }, data)], "array");
-                    //если пользователя нет, то при регистрации дарим ему подарок;
-                    __1.ConfigInstance.fileService.save(data.idname, "tickets", "100", "text");
-                    return { token: newPassword, name: data.name, id: data.idname, tickets: 100 };
+                    return { token: newPassword, name: data.name, id: data.idname };
                 }
             }
             return null;
@@ -43,11 +56,7 @@ class Oauth {
             if (!user) {
                 return null;
             }
-            let t = yield __1.ConfigInstance.fileService.load(user.idname, "tickets", "text");
-            if (typeof t === "string") {
-                t = Number(t);
-            }
-            return { token: user.token, name: user.name, id: user.idname, tickets: t };
+            return { token: user.token, name: user.name, id: user.idname };
         });
     }
 }

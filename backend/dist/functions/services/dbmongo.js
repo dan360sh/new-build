@@ -83,11 +83,12 @@ class DBMongo {
                             return null;
                         }
                         let count = (stop - start) + start;
-                        return yield collection.find({}, { projection: { _id: 0 } })
+                        let find = yield collection.find({}, { projection: { _id: 0 } })
                             .sort({ _id: 1 }) // Гарантированный порядок добавления
                             .skip(estimate - count)
                             .limit(stop - start)
                             .toArray();
+                        return { data: find, stepObject: { start, stop, allQuantity: estimate } };
                     }
                     else {
                         let a = yield collection.find({}, { projection: { _id: 0 } }).toArray();
@@ -116,8 +117,22 @@ class DBMongo {
      */
     updateOne(name, search, data) {
         return __awaiter(this, void 0, void 0, function* () {
+            console.log("updateOne1");
             const collection = this.db.collection(name);
-            yield collection.updateOne(search, data);
+            yield collection.replaceOne(search, data, { upsert: true });
+        });
+    }
+    deleteOne(name, search) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const collection = this.db.collection(name);
+            let r = yield collection.deleteOne(search);
+            console.log("delete", r);
+        });
+    }
+    drop(name) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const result = yield this.db.collection(name).drop();
+            console.log('Коллекция удалена:', result); // true при успехе
         });
     }
 }

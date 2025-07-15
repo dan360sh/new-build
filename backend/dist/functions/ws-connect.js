@@ -17,6 +17,8 @@ const ws_1 = require("ws");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const chats_1 = require("./services/chats");
 const llm_list_1 = require("./services/llm-list");
+const __1 = require("..");
+const user_object_1 = require("./class/user_object");
 // export interface AllUser {
 //     name: string, 
 //     token: string, 
@@ -26,6 +28,7 @@ const llm_list_1 = require("./services/llm-list");
 class WsConnect {
     constructor(bd) {
         this.bd = bd;
+        this.userList = new user_object_1.UserList();
         console.log("WsConnect я первый");
         this.init();
     }
@@ -36,6 +39,8 @@ class WsConnect {
             const llmList = new llm_list_1.LlmList();
             const listLlm = yield llmList.loadLlmList();
             const providers = yield llmList.loadProviders();
+            __1.ConfigInstance.llmList = listLlm;
+            __1.ConfigInstance.provider = providers;
             this.wss.on('connection', (ws) => {
                 //let id: string | null | undefined = null;
                 let chat = null;
@@ -47,27 +52,32 @@ class WsConnect {
                     if (data.type === "oauth") {
                         const decoded = jsonwebtoken_1.default.decode(data.data);
                         console.log(decoded, "decoded");
-                        user = yield this.bd.oauthUser({
+                        let u = yield this.bd.oauthUser({
                             idname: decoded.sub,
                             name: decoded.name,
                             email: decoded.email,
                         });
                         console.log(user, "user1111");
-                        if (user) {
-                            chat = new chats_1.Chats(user, ws, listLlm, providers);
+                        if (u) {
+                            user = this.userList.add(ws, u);
+                            chat = new chats_1.Chats(user, listLlm, providers, ws);
                         }
-                        ws.send(JSON.stringify({ type: "authorization", data: user }));
+                        ws.send(JSON.stringify({ type: "authorization", data: u }));
                     }
                     else if (data.type === "authorization") {
-                        user = yield this.bd.authorization(data.data);
+                        let u = yield this.bd.authorization(data.data);
                         console.log("authorization user", user);
-                        if (user) {
+                        if (u) {
+                            user = this.userList.add(ws, u);
                             ws.send(JSON.stringify({ type: "authorization", data: { name: user.name, token: user.token } }));
+                            user.subscriptionService.sendSubscription();
+                            //    newUser.send({type: "xxx", data: {name: "xxx"}});
+                            chat = new chats_1.Chats(user, listLlm, providers, ws);
                         }
-                        if (user) {
-                            chat = new chats_1.Chats(user, ws, listLlm, providers);
-                            //инициа
-                        }
+                    }
+                    else if (data.type === "exit" && user) {
+                        user = null;
+                        chat = null;
                     }
                     else if (data.type === "create-chat" && user) {
                         if (chat) {
@@ -95,6 +105,16 @@ class WsConnect {
                     else if (data.type == "settings-chat" && user) {
                         if (chat) {
                             chat.settingsChat(data.data);
+                        }
+                    }
+                    else if (data.type == "dlete-chat" && user) {
+                        if (chat) {
+                            chat.deleteChat(data.data);
+                        }
+                    }
+                    else if (data.type == "reloading-chat" && user) {
+                        if (chat) {
+                            chat.reloadingChat(data.data.id, data.data.step);
                         }
                     }
                 }));

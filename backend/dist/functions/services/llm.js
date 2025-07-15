@@ -23,107 +23,120 @@ class Llm {
         this.fileService = __1.ConfigInstance.fileService;
         this.countTokens = 0;
     }
-    preparationSendLlmMessage(messageUser, context, ws, llms, provider, openChat, user, streamId, chatArray) {
+    preparationSendLlmMessage(messageUser, context, llms, provider, openChat, user, streamId, chatArray) {
         return __awaiter(this, void 0, void 0, function* () {
-            ws.send(JSON.stringify({ type: 'send-token', data: { id: openChat === null || openChat === void 0 ? void 0 : openChat.settings.id, type: "start" } }));
-            this.countTokens = 0;
-            console.log("start", JSON.stringify({ type: 'send-token', data: { id: openChat === null || openChat === void 0 ? void 0 : openChat.settings.id, type: "start" } }));
-            const mcp = __1.ConfigInstance.mcp;
-            console.log(JSON.stringify(mcp.tools), 'mcp.tools');
-            this.saveChat(openChat, [{ role: "user", content: messageUser }], [{ role: "user", content: [{ type: 'message', data: messageUser }] }], user.id);
-            const promt = mcp.promt + JSON.stringify(mcp.tools);
-            context.unshift({ role: "system", content: promt });
-            // сохранение чата
-            const findChat = chatArray.find(e => e.id == openChat.settings.id);
-            if (findChat) {
-                findChat.noSave = false;
+            try {
+                user.send({ type: 'send-token', data: { id: openChat === null || openChat === void 0 ? void 0 : openChat.settings.id, type: "start" } });
+                this.countTokens = 0;
+                const mcp = __1.ConfigInstance.mcp;
+                console.log(JSON.stringify(mcp.tools), 'mcp.tools');
+                this.saveChat(openChat, [{ role: "user", content: messageUser }], [{ role: "user", content: [{ type: 'message', data: messageUser }] }], user.id);
+                const promt = mcp.promt + JSON.stringify(mcp.tools);
+                context.unshift({ role: "system", content: promt });
+                // сохранение чата
+                const findChat = chatArray.find(e => e.id == openChat.settings.id);
+                if (findChat && findChat.noSave) {
+                    findChat.noSave = false;
+                    this.fileService.save(user.id, 'chats.json', [findChat], 'array');
+                    console.log(chatArray, "chatArray save");
+                }
+                this.fileService.save(user.id, 'chats.json', JSON.stringify(chatArray), 'text');
+                openChat.settings.time = Date.now().toString();
+                yield this.sendLlmMessage(context, llms, provider, openChat, user, streamId, chatArray);
+                context.shift();
+                if (openChat.settings.name === "Новый чат") {
+                    const nameNew = yield this.newName(context);
+                    if (nameNew) {
+                        console.log("save new name", nameNew);
+                        openChat.settings.name = nameNew;
+                        const findChat = chatArray.find(e => e.id == openChat.settings.id);
+                        if (findChat) {
+                            findChat.name = nameNew;
+                            this.fileService.updateOne(user.id, 'chats.json', { id: findChat.id }, findChat);
+                        }
+                    }
+                }
+                this.fileService.save(user.id, 'chats-settings/' + openChat.settings.id + 'chats.json', JSON.stringify(openChat.settings), 'text');
+                delete streamId[openChat.settings.id];
+                user.send({ type: 'send-token', data: { id: openChat.settings.id, type: "stop" } });
+                console.log("stop", JSON.stringify({ type: 'send-token', data: { id: openChat.settings.id, type: "stop" } }));
             }
-            console.log(chatArray, " chatArray");
-            this.fileService.save(user.id, 'chats.json', JSON.stringify(chatArray), 'text');
-            openChat.settings.time = Date.now().toString();
-            yield this.sendLlmMessage(context, ws, llms, provider, openChat, user, streamId, chatArray);
-            this.fileService.save(user.id, 'chats-settings/' + openChat.settings.id + 'chats.json', JSON.stringify(openChat.settings), 'text');
-            delete streamId[openChat.settings.id];
-            context.shift();
-            ws.send(JSON.stringify({ type: 'send-token', data: { id: openChat.settings.id, type: "stop" } }));
-            // сохранение в аналитику 
-            yield this.fileService.save(user.id, 'analytics.json', [{ time: Date.now().toString(), name: llms.name, price: llms.price, countTokens: this.countTokens, writtenOff: this.countTokens * llms.price / 1000000 }], 'array');
-            console.log("stop", JSON.stringify({ type: 'send-token', data: { id: openChat.settings.id, type: "stop" } }));
+            catch (e) {
+                console.log(e);
+            }
         });
     }
-    sendLlmMessage(context, ws, llms, provider, openChat, user, streamId, chatArray) {
+    sendLlmMessage(context, llms, provider, openChat, user, streamId, chatArray) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, e_1, _b, _c;
-            var _d;
             let toolFlag = false;
             let message = "";
-            console.log(context, "context");
             const messageContext = [];
             const messageChat = [];
+            console.log(context, "context");
             if (provider.llm) {
                 streamId[openChat === null || openChat === void 0 ? void 0 : openChat.settings.id] = new AbortController();
                 try {
                     const completion = yield provider.llm.chat.completions.create({
                         model: llms.model,
                         messages: context,
-                        max_tokens: 100000,
+                        max_tokens: 100,
                         temperature: 0.7,
                         stream: true
                     }, { signal: streamId[openChat === null || openChat === void 0 ? void 0 : openChat.settings.id].signal });
                     try {
-                        for (var _e = true, completion_1 = __asyncValues(completion), completion_1_1; completion_1_1 = yield completion_1.next(), _a = completion_1_1.done, !_a; _e = true) {
+                        for (var _d = true, completion_1 = __asyncValues(completion), completion_1_1; completion_1_1 = yield completion_1.next(), _a = completion_1_1.done, !_a; _d = true) {
                             _c = completion_1_1.value;
-                            _e = false;
+                            _d = false;
                             let token = _c;
-                            yield completion;
-                            //console.log("token.usage",token.usage);
-                            ws.send(JSON.stringify({ type: 'send-token', data: { id: openChat === null || openChat === void 0 ? void 0 : openChat.settings.id, token: token.choices[0].delta } }));
-                            // console.log("token.choices[0].delta", token.choices[0].delta.content)
+                            user.send({ type: 'send-token', data: { id: openChat === null || openChat === void 0 ? void 0 : openChat.settings.id, token: token.choices[0].delta } });
+                            if (token.usage) {
+                                console.log("token.usage1", token.usage);
+                            }
                             message += token.choices[0].delta.content;
-                            //let mesList = message.split('<mcp-tools>');
                             let tools = this.extractTextFromMCPTools(message);
                             if (tools) {
-                                toolFlag = true;
-                                console.log(tools, "tools");
-                                let toolsParse = JSON.parse(tools);
-                                console.log(toolsParse, "toolsParse");
-                                let mcpArray = {};
-                                for (let nameMcp in toolsParse) {
-                                    console.log(toolsParse[nameMcp], "toolsParse[nameMcp]");
-                                    for (let com in toolsParse[nameMcp]) {
-                                        const mcpServer = __1.ConfigInstance.mcp.mspArray[nameMcp];
-                                        console.log({ name: com, arguments: toolsParse[nameMcp][com] }, "{name: com, arguments : toolsParse[nameMcp][com]}");
-                                        const r = yield mcpServer.callTool({ name: com, arguments: toolsParse[nameMcp][com] });
-                                        JSON.stringify(r);
-                                        mcpArray[com] = r;
-                                        console.log(r, "rrrr");
+                                try {
+                                    toolFlag = true;
+                                    let toolsParse = JSON.parse(tools);
+                                    let mcpArray = {};
+                                    for (let nameMcp in toolsParse) {
+                                        for (let com in toolsParse[nameMcp]) {
+                                            const mcpServer = __1.ConfigInstance.mcp.mspArray[nameMcp];
+                                            const r = yield mcpServer.callTool({ name: com, arguments: toolsParse[nameMcp][com] });
+                                            JSON.stringify(r);
+                                            mcpArray[com] = r;
+                                        }
                                     }
+                                    let ms = message.split('<mcp-tools>')[0];
+                                    ms = ms.trim();
+                                    let messageChatContent = [];
+                                    if (ms.length > 0) {
+                                        messageChatContent.push({ type: 'message', data: ms });
+                                    }
+                                    messageChatContent.push({ type: 'tool', data: { request: tools, response: JSON.stringify(mcpArray) } });
+                                    messageChat.push({ role: "assistant", content: messageChatContent });
+                                    messageContext.push({ role: "assistant", content: message });
+                                    messageContext.push({ role: "user", content: JSON.stringify(mcpArray) });
+                                    break;
                                 }
-                                let ms = message.split('<mcp-tools>')[0];
-                                ms = ms.trim();
-                                let messageChatContent = [];
-                                if (ms.length > 0) {
-                                    messageChatContent.push({ type: 'message', data: ms });
+                                catch (e) {
+                                    console.log("tool error", e);
                                 }
-                                messageChatContent.push({ type: 'tool', data: { request: tools, response: JSON.stringify(mcpArray) } });
-                                messageChat.push({ role: "assistant", content: messageChatContent });
-                                messageContext.push({ role: "assistant", content: message });
-                                messageContext.push({ role: "user", content: JSON.stringify(mcpArray) });
-                                console.log(toolsParse, 'toolsParse');
-                                break;
                             }
                         }
                     }
                     catch (e_1_1) { e_1 = { error: e_1_1 }; }
                     finally {
                         try {
-                            if (!_e && !_a && (_b = completion_1.return)) yield _b.call(completion_1);
+                            if (!_d && !_a && (_b = completion_1.return)) yield _b.call(completion_1);
                         }
                         finally { if (e_1) throw e_1.error; }
                     }
                 }
                 catch (e) {
                     console.log("была остановка", e);
+                    messageChat.push({ role: "assistant", content: [{ type: 'message', data: message }] });
                 }
                 if (!toolFlag) {
                     messageContext.push({ role: "assistant", content: message });
@@ -136,21 +149,17 @@ class Llm {
                     max_tokens: 1,
                 });
                 console.log('Ответ:', completionx.choices[0].message.content);
-                console.log('Использование токенов:', (_d = completionx.usage) === null || _d === void 0 ? void 0 : _d.total_tokens);
+                console.log('Использование токенов:', completionx.usage);
                 if (completionx.usage) {
-                    //потраченные токены
-                    let count = completionx.usage.total_tokens - openChat.settings.tokenCount;
-                    //умножаем на цену за миллион
+                    let count = completionx.usage.total_tokens - completionx.usage.prompt_tokens;
                     this.countTokens = this.countTokens + count;
-                    user.tickets = user.tickets - (llms.price * count / 1000000);
+                    user.subscriptionService.updateTickets(llms, count);
                     openChat.settings.tokenCount = completionx.usage.total_tokens;
-                    ws.send(JSON.stringify({ type: 'token-count', data: { tokenCount: openChat.settings.tokenCount, tickets: user.tickets } }));
-                    // запись в базу о потраченых токенах, нужно время, какая модель, сколько потрачено, сколько токенов.
-                    // также у юзера должна быть запись о токенах 
+                    user.send({ type: 'token-count', data: { tokenCount: openChat.settings.tokenCount } });
                 }
                 if (toolFlag) {
                     console.log("Второй заход");
-                    yield this.sendLlmMessage(context, ws, llms, provider, openChat, user, streamId, chatArray);
+                    yield this.sendLlmMessage(context, llms, provider, openChat, user, streamId, chatArray);
                 }
                 return;
             }
@@ -165,10 +174,32 @@ class Llm {
         return __awaiter(this, void 0, void 0, function* () {
             var _a;
             (_a = openChat.context) === null || _a === void 0 ? void 0 : _a.push(...messageContext);
-            openChat.messages.push(...messageChat);
             yield this.fileService.save(userId, 'chats-context/' + openChat.settings.id + 'chats.json', messageContext, 'array');
             yield this.fileService.save(userId, 'chats-messages/' + openChat.settings.id + 'chats.json', messageChat, 'array');
             return;
+        });
+    }
+    newName(messageContext) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const idNameLlm = process.env.GN_NAME;
+            console.log("newName", idNameLlm);
+            const llm = __1.ConfigInstance.llmList.find(e => idNameLlm == e.id);
+            if (llm) {
+                let provider = __1.ConfigInstance.provider.find(e => e.id == llm.providerId);
+                const context = [{ role: "system",
+                        content: "Придумай название для чата операясь на контекст сообщений, уложись от одного до трех слов. Твой ответ должен быть только из названия чата, никаких пояснений и ничего лишнего" }];
+                context.push({ role: "user", content: `Контекст: ` + JSON.stringify(messageContext) });
+                const completion = yield ((_a = provider === null || provider === void 0 ? void 0 : provider.llm) === null || _a === void 0 ? void 0 : _a.chat.completions.create({
+                    model: llm.model,
+                    messages: context,
+                    max_tokens: 12,
+                    temperature: 0.7
+                }));
+                console.log("newName message");
+                return completion === null || completion === void 0 ? void 0 : completion.choices[0].message.content;
+            }
+            return null;
         });
     }
 }
